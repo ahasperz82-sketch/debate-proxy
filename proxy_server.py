@@ -1,23 +1,30 @@
 """
-AI Debate Loop — Dual API Proxy Server
-Gemini + Claude API를 중계하는 Flask 프록시
-Claude Artifact iframe의 CORS 제한을 우회합니다.
-
-실행: python proxy_server.py
-포트: 5001 (기본값, 환경변수 PORT로 변경 가능)
+AI Debate Loop — Dual API Proxy Server v2
+CORS 헤더 명시적 처리 버전
 """
 
 import os
-import json
 import requests
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask import Flask, request, jsonify, make_response
 
 app = Flask(__name__)
 
-# ── CORS 설정 ──────────────────────────────────────────
-# claude.ai 전용으로 제한하거나 "*" 로 전체 허용
-CORS(app, resources={r"/*": {"origins": "*"}})
+# ── CORS 헤더 — 모든 응답에 명시적으로 추가 ──────────────
+def add_cors(response):
+    response.headers["Access-Control-Allow-Origin"]  = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Max-Age"]       = "86400"
+    return response
+
+app.after_request(add_cors)
+
+# ── OPTIONS Preflight 일괄 처리 ───────────────────────────
+@app.route("/", methods=["OPTIONS"])
+@app.route("/gemini", methods=["OPTIONS"])
+@app.route("/claude", methods=["OPTIONS"])
+def options_handler():
+    return make_response("", 204)
 
 # ── 환경변수 설정 ──────────────────────────────────────
 # Claude API 키 (선택: 서버에 고정하거나 요청 시 전달)
